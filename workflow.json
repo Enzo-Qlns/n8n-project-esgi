@@ -1,0 +1,1174 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "2a9d7bd1-6833-4ef0-aa5f-dea9ee3269ce",
+      "name": "⏰ Tous les jours à 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        36720,
+        15936
+      ]
+    },
+    {
+      "parameters": {
+        "messages": {
+          "message": [
+            {
+              "content": "Tu es un veilleur d'actualité française spécialisé dans 2 domaines : (1) la politique impactant les étudiants et jeunes entrepreneurs, (2) l'actualité tech/informatique. Retourne UNIQUEMENT un JSON valide.",
+              "role": "system"
+            },
+            {
+              "content": "Donne-moi les actualités françaises les plus importantes des dernières 48h dans 2 catégories :\n\nCATÉGORIE 1 - POLITIQUE (5 actus)\n\nCATÉGORIE 2 - TECH/INFORMATIQUE (5 actus)\n\nPour chaque actu : titre, résumé 2-3 phrases, pourquoi c'est important, source.\n\nRetourne en JSON : {\"politique\": [{\"titre\": \"\", \"resume\": \"\", \"impact_cible\": \"\", \"source\": \"\", \"potentiel_viral\": \"fort/moyen/faible\"}], \"tech\": [{\"titre\": \"\", \"resume\": \"\", \"impact_cible\": \"\", \"source\": \"\", \"potentiel_viral\": \"fort/moyen/faible\"}]}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 4000
+        },
+        "requestOptions": {}
+      },
+      "id": "01e930cd-483c-4095-beb1-803419071975",
+      "name": "🔍 Perplexity - Chercher les actus",
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [
+        36944,
+        15936
+      ],
+      "credentials": {
+        "perplexityApi": {
+          "id": "AW7mlhPnv7pAy7bw",
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet data;\ntry {\n  const content = response.message?.content || response.content || response.choices?.[0]?.message?.content || JSON.stringify(response);\n  try { data = typeof content === 'object' ? content : JSON.parse(content); }\n  catch { const m = content.match(/```json?\\n?([\\s\\S]*?)\\n?```/); if(m){data=JSON.parse(m[1])}else{data=JSON.parse(content.match(/\\{[\\s\\S]*\\}/)[0])} }\n} catch (e) { return [{json:{error:'Parsing échoué: '+e.message}}]; }\nconst politique = data.politique || data.actualites || [];\nconst tech = data.tech || [];\nconst sortByViral = (arr) => (Array.isArray(arr)?arr:[]).sort((a,b)=>({'fort':3,'moyen':2,'faible':1}[b.potentiel_viral]||0)-({'fort':3,'moyen':2,'faible':1}[a.potentiel_viral]||0));\nreturn [{json:{ politique: sortByViral(politique), tech: sortByViral(tech), date_generation: new Date().toISOString().split('T')[0], date_publication: new Date(Date.now()+86400000).toISOString().split('T')[0] }}];"
+      },
+      "id": "d30c5908-2f88-4d97-b5a6-d79fb5095a47",
+      "name": "📊 Parser les actus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        37168,
+        15936
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "205a0527-f847-467a-85eb-d6db12a77a12",
+      "name": "❓ Parse OK ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        37392,
+        15936
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e",
+              "name": "error_message",
+              "value": "=⚠️ Erreur parsing Perplexity",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9502d662-6490-4b86-a656-4c7c256150ad",
+      "name": "⚠️ Erreur parsing",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        37616,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tu es un ghostwriter LinkedIn expert en posts viraux pour un profil de jeune entrepreneur français. Tu dois générer EXACTEMENT 2 posts LinkedIn pour demain.\n\nPROFIL DE L'AUTEUR :\n- Enzo Quelenis, 21 ans, en 4ème année d'informatique (architecture logiciel / dev web)\n- Fondateur de milléweb (création de sites web performants pour solopreneurs/TPE/PME) depuis 1 an et demi, en parallèle de ses études\n- Slogan milléweb : \"Votre site web performant, qui convertit et que vous maîtrisez à 100%\"\n- Fondateur du Student Business Club à Reims (premier réseau 100% étudiant pour apprendre les codes business)\n- Membre du Club Activ' Business (benjamin du club)\n- Personnalité : audacieux, cash, sort de sa zone de confort, 1000 idées à la seconde, humour, transparence absolue\n- Valeurs : zéro dépendance client, autonomie, entrepreneuriat étudiant, pas de bullshit\n\nACTUALITÉS POLITIQUE (source Perplexity) :\n{{ JSON.stringify($json.politique) }}\n\nACTUALITÉS TECH/INFORMATIQUE (source Perplexity) :\n{{ JSON.stringify($json.tech) }}\n\n\n\nANALYSE DE TES POSTS PRÉCÉDENTS (données réelles de performance) :\n{{ $json.top_posts_analysis }}\n\nUTILISE CES DONNÉES POUR :\n- T'inspirer des hooks de tes top posts (même structure, même ton provocateur/personnel)\n- Viser la longueur idéale identifiée dans l'analyse\n- Éviter les patterns de tes posts les moins performants\n- Adapter le style au type de post (actu vs tech) selon ce qui performe le mieux pour chaque catégorie\n\nRÈGLES STRICTES :\n\n📌 POST 1 - ACTUALITÉ POLITIQUE (type: \"actu\")\n- Choisis L'ACTUALITÉ POLITIQUE la plus impactante/polémique pour les étudiants OU entrepreneurs\n- Format VIRAL LinkedIn : hook percutant (1 phrase choc) → contexte rapide → ton opinion tranchée → ce que ça change concrètement → CTA engageant\n- Ton : mix entre cash/provocateur, pédagogique et inspirant.\n- Sauts de ligne fréquents. Pas de hashtags dans le corps. 3-5 hashtags à la fin.\n- Entre 800 et 1500 caractères. Tutoie le lecteur. Sois ÉVIDENT.\n\n📌 POST 2 - ACTUALITÉ TECH (type: \"tech\")\n- Choisis L'ACTUALITÉ TECH la plus marquante (IA, dev web, cybersécurité, startup tech, nouveau framework, etc.)\n- Format VIRAL LinkedIn : hook percutant → explication vulgarisée → pourquoi c'est important → ton avis de dev/entrepreneur → CTA\n- Ton : passionné, expert mais accessible, un dev qui parle à d'autres devs et entrepreneurs\n- Sauts de ligne fréquents. Pas de hashtags dans le corps. 3-5 hashtags à la fin.\n- Entre 800 et 1500 caractères. Tutoie le lecteur. Sois ÉVIDENT.\n\nIMPORTANT pour \"heure_publication_suggeree\" : retourne UNIQUEMENT une heure au format \"XXhXX\" (exemples : \"8h30\", \"12h00\", \"17h30\"). Pas de phrase, pas de description, pas de fourchette horaire, JUSTE l'heure exacte.\n\nFORMAT DE SORTIE (JSON STRICT) :\n{\"posts\":[\n  {\"type\":\"actu\",\"titre_interne\":\"\",\"contenu\":\"HOOK EN PREMIÈRE LIGNE\\n\\n\\nCorps du post...\",\"hashtags\":\"\",\"actu_source\":\"\",\"heure_publication_suggeree\":\"9h00\",\"image_titre\":\"TITRE COURT MAJUSCULES max 5 mots\",\"image_sous_titre\":\"Sous-titre max 8 mots\",\"image_icone\":\"description icône flat design pour le sujet politique\"},\n  {\"type\":\"tech\",\"titre_interne\":\"\",\"contenu\":\"HOOK EN PREMIÈRE LIGNE\\n\\n\\nCorps du post...\",\"hashtags\":\"\",\"actu_source\":\"\",\"heure_publication_suggeree\":\"9h00\",\"image_titre\":\"TITRE COURT MAJUSCULES max 5 mots\",\"image_sous_titre\":\"Sous-titre max 8 mots\",\"image_icone\":\"description icône flat design pour le sujet tech\"}\n]}\n\nIMPORTANT pour le champ \"contenu\" : le hook (phrase d'accroche percutante) doit être la PREMIÈRE LIGNE du contenu, suivi de 2 sauts de ligne vides (\\n\\n\\n) avant le corps du post. Ne mets PAS le hook dans un champ séparé."
+      },
+      "id": "59c08a5b-aa76-4381-9e15-7166f63bb716",
+      "name": "🤖 Gemini - Générer 2 posts",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        37840,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "maxOutputTokens": 4000,
+          "temperature": 0.9,
+          "topP": 0.95
+        }
+      },
+      "id": "39cf3e85-713e-4ab5-8dd1-1287f20b77a5",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        37920,
+        16256
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "rTARpeEmL1fMX5Re",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst prev = $('📊 Parser les actus').first().json;\nlet posts;\n\ntry {\n  let c = response.response || response.text || response.output || JSON.stringify(response);\n  if (typeof c === 'object') { posts = c; }\n  else {\n    // Nettoyer les blocs markdown\n    const mdMatch = c.match(/```json?\\n?([\\s\\S]*?)\\n?```/);\n    if (mdMatch) c = mdMatch[1];\n    \n    // Parser robuste : nettoyer caractère par caractère les \\n dans les strings JSON\n    let cleaned = '';\n    let inString = false;\n    let escaped = false;\n    \n    for (let i = 0; i < c.length; i++) {\n      const ch = c[i];\n      \n      if (escaped) {\n        cleaned += ch;\n        escaped = false;\n        continue;\n      }\n      \n      if (ch === '\\\\') {\n        escaped = true;\n        cleaned += ch;\n        continue;\n      }\n      \n      if (ch === '\"') {\n        inString = !inString;\n        cleaned += ch;\n        continue;\n      }\n      \n      if (inString) {\n        // Remplacer les vrais sauts de ligne par \\n dans les strings\n        if (ch === '\\n') { cleaned += '\\\\n'; continue; }\n        if (ch === '\\r') { cleaned += '\\\\r'; continue; }\n        if (ch === '\\t') { cleaned += '\\\\t'; continue; }\n      }\n      \n      cleaned += ch;\n    }\n    \n    // Extraire le JSON objet\n    const braceStart = cleaned.indexOf('{');\n    const braceEnd = cleaned.lastIndexOf('}');\n    if (braceStart === -1 || braceEnd === -1) throw new Error('Pas de JSON trouvé');\n    \n    const jsonStr = cleaned.substring(braceStart, braceEnd + 1);\n    \n    try {\n      posts = JSON.parse(jsonStr);\n    } catch (e2) {\n      // Dernier recours : essayer de parser le texte brut\n      const rawBrace = c.substring(c.indexOf('{'), c.lastIndexOf('}') + 1);\n      // Remplacer tous les \\n dans les strings manuellement\n      let fixedJson = '';\n      let inStr = false;\n      let esc = false;\n      for (let i = 0; i < rawBrace.length; i++) {\n        const ch = rawBrace[i];\n        if (esc) { fixedJson += ch; esc = false; continue; }\n        if (ch === '\\\\') { esc = true; fixedJson += ch; continue; }\n        if (ch === '\"') { inStr = !inStr; fixedJson += ch; continue; }\n        if (inStr && ch === '\\n') { fixedJson += '\\\\n'; continue; }\n        if (inStr && ch === '\\r') { continue; }\n        fixedJson += ch;\n      }\n      posts = JSON.parse(fixedJson);\n    }\n  }\n} catch(e) {\n  return [{json:{\n    Titre: 'ERREUR PARSING',\n    Type: 'actu',\n    Contenu: 'Erreur: ' + e.message + '\\n\\nRéponse brute (début): ' + String(response.response || response.text || '').substring(0, 500),\n    'Date Publication': prev.date_publication,\n    'Heure Suggérée': '',\n    Statut: 'Rejeté',\n    'Source Actu': '',\n    'Date Génération': prev.date_generation,\n    'Publié': false,\n    image_titre: '',\n    image_sous_titre: '',\n    image_icone: ''\n  }}];\n}\n\nconst arr = posts.posts || posts;\nconst items = Array.isArray(arr) ? arr : [arr];\n\nreturn items.map(p => {\n  // Reconstituer le contenu proprement\n  let contenu = p.contenu || '';\n  // S'assurer que les \\n sont de vrais sauts de ligne\n  contenu = contenu.replace(/\\\\n/g, '\\n');\n  // Ajouter les hashtags à la fin\n  const hashtags = p.hashtags || '';\n  if (hashtags && !contenu.includes(hashtags)) {\n    contenu = contenu + '\\n\\n' + hashtags;\n  }\n  \n  return {\n    json: {\n      Titre: p.titre_interne || 'Sans titre',\n      Type: p.type || 'actu',\n      Contenu: contenu,\n      'Date Publication': prev.date_publication,\n      'Heure Suggérée': p.heure_publication_suggeree || '',\n      Statut: 'En attente de validation',\n      'Source Actu': p.actu_source || '',\n      'Date Génération': prev.date_generation,\n      'Publié': false,\n      image_titre: p.image_titre || '',\n      image_sous_titre: p.image_sous_titre || '',\n      image_icone: p.image_icone || ''\n    }\n  };\n});"
+      },
+      "id": "45136801-d28a-4bfd-b3aa-5700e594f422",
+      "name": "✂️ Parser les 2 posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        38192,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst SIMILARITY_THRESHOLD = 0.85;\nconst results = [];\n\nfor (const item of items) {\n  const d = item.json;\n  const contenu = d.Contenu || '';\n  \n  if (d.Statut === 'Rejeté' || contenu.length < 50) {\n    results.push({ json: { ...d, qdrant_status: 'skipped' } });\n    continue;\n  }\n\n  try {\n    const truncated = contenu.substring(0, 2000);\n    const embResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={{GEMINI_KEY}}',\n      headers: { 'Content-Type': 'application/json' },\n      body: {\n        model: 'models/gemini-embedding-001',\n        content: { parts: [{ text: truncated }] }\n      },\n      json: true\n    });\n\n    const embedding = embResponse.embedding?.values || [];\n    if (embedding.length === 0) {\n      results.push({ json: { ...d, qdrant_status: 'no_embedding' } });\n      continue;\n    }\n\n    const searchResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://qdrant:6333/collections/linkedin_posts/points/search',\n      headers: { 'Content-Type': 'application/json' },\n      body: {\n        vector: embedding,\n        limit: 3,\n        with_payload: { include: ['hook', 'type', 'sentAt', 'text_length'] }\n      },\n      json: true\n    });\n\n    const matches = searchResponse.result || [];\n    const topScore = matches.length > 0 ? matches[0].score : 0;\n    const topMatch = matches.length > 0 ? matches[0].payload : null;\n\n    if (topScore > SIMILARITY_THRESHOLD) {\n      results.push({ json: {\n        ...d,\n        Statut: 'Doublon détecté',\n        qdrant_status: 'duplicate',\n        qdrant_score: Math.round(topScore * 1000) / 1000,\n        qdrant_similar_hook: topMatch?.hook || '',\n        qdrant_similar_date: topMatch?.sentAt || ''\n      }});\n    } else {\n      results.push({ json: {\n        ...d,\n        qdrant_status: 'original',\n        qdrant_score: Math.round(topScore * 1000) / 1000,\n        qdrant_similar_hook: topMatch?.hook || 'aucun match'\n      }});\n    }\n  } catch (e) {\n    results.push({ json: { ...d, qdrant_status: 'error: ' + e.message } });\n  }\n}\n\nreturn results;"
+      },
+      "id": "cccdcee5-a4bd-4c8b-9b59-b03656a777e6",
+      "name": "🔍 Check Qdrant - Doublons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        38416,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "not-dup",
+              "leftValue": "={{ $json.qdrant_status }}",
+              "rightValue": "duplicate",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "db2400d3-60cb-4a11-9af2-cff7e9ea5a35",
+      "name": "❓ Doublon ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        38640,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.Type }}",
+                    "rightValue": "actu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.Type }}",
+                    "rightValue": "tech",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "allMatchingOutputs": false
+        }
+      },
+      "id": "94b12a11-b41d-4bb1-a806-cc312570be1b",
+      "name": "🔀 Politique ou Tech ?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        39312,
+        15936
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://res.cloudinary.com/dwtweioda/image/upload/v1774305618/FORMATION_CANVA_-_MW_4_xlkww0.png",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "6e921b5e-1a92-4881-bb11-617e94328b4c",
+      "name": "📥 Template Politique",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        39536,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://res.cloudinary.com/dwtweioda/image/upload/v1773235984/1769363788529_ubnckj.jpg",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "461a52df-019d-4eef-b751-8708e9eead74",
+      "name": "📥 Template Tech",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        39536,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst item = items[0];\nconst binaryKey = Object.keys(item.binary)[0];\nconst buffer = await this.helpers.getBinaryDataBuffer(0, binaryKey);\nconst templateBase64 = buffer.toString('base64');\nconst templateMime = item.binary[binaryKey].mimeType || 'image/png';\n\nconst postData = $('🔀 Politique ou Tech ?').first().json;\nconst imageTitre = postData.image_titre || 'TITRE';\nconst imageSousTitre = postData.image_sous_titre || 'Sous-titre';\n\nconst apiKey = '{{CLOUDINARY_KEY}}';\nconst apiSecret = '{{CLOUDINARY_KEY}}';\nconst auth = Buffer.from(apiKey + ':' + apiSecret).toString('base64');\n\nconst searchResponse = await this.helpers.httpRequest({\n  method: 'POST', url: 'https://api.cloudinary.com/v1_1/dwtweioda/resources/search',\n  headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/json' },\n  body: { expression: 'folder:moi AND resource_type:image', max_results: 30 }, json: true\n});\n\nconst photos = searchResponse.resources || [];\nif (photos.length === 0) {\n  const prompt = `Edit this image: replace the dark navy pill text with: ${imageTitre}. Replace subtitle with: ${imageSousTitre}. Keep everything else identical.`;\n  return [{json:{requestBody:{contents:[{parts:[{inline_data:{mime_type:templateMime,data:templateBase64}},{text:prompt}]}],generationConfig:{responseModalities:[\"TEXT\",\"IMAGE\"]}}}}];\n}\n\nconst randomPhoto = photos[Math.floor(Math.random() * photos.length)];\nconst photoUrl = randomPhoto.secure_url || randomPhoto.url;\nconst photoBuffer = await this.helpers.httpRequest({ method: 'GET', url: photoUrl, encoding: 'arraybuffer', returnFullResponse: false, json: false });\nconst photoBase64 = Buffer.from(photoBuffer, 'binary').toString('base64');\nconst isValidPng = photoBase64.startsWith('iVBOR');\nconst finalPhotoMime = isValidPng ? 'image/png' : 'image/jpeg';\n\nconst prompt = `I'm giving you TWO images:\n- IMAGE 1: a design template\n- IMAGE 2: a photo of a person named Enzo\n\nGenerate a NEW image that is an EXACT COPY of IMAGE 1 with ONLY these 2 modifications:\n\nMODIFICATION 1: The top half of IMAGE 1 contains a photo. Replace that photo with IMAGE 2 (Enzo's photo). Place IMAGE 2 in the same area. Keep the original aspect ratio of IMAGE 2 — do NOT stretch or distort. Center and crop if needed, but never change the proportions of the person's face or body.\n\nMODIFICATION 2: In the bottom half, replace ALL text with ONLY these 2 elements (nothing else):\n\n1. (inside the dark navy rounded pill/badge, bold white text): ${imageTitre}\n2. (smaller gray text below the badge): ${imageSousTitre}\n\nThese 2 text elements must be centered and stacked vertically. Remove ALL other text from the bottom half except \"Enzo Quelenis\" near the avatar.\n\nEVERYTHING ELSE must be an IDENTICAL COPY of IMAGE 1:\n- The bottom area with the small circular photo of Enzo and \"Enzo Quelenis\" text - COPY EXACTLY\n- The light blue/white gradient background - COPY EXACTLY\n- Do NOT add any logo, watermark, or branding that is not in IMAGE 1\n\nOutput the same dimensions as IMAGE 1.`;\n\nreturn [{json:{requestBody:{contents:[{parts:[\n  {inline_data:{mime_type:templateMime, data:templateBase64}},\n  {inline_data:{mime_type:finalPhotoMime, data:photoBase64}},\n  {text:prompt}\n]}],generationConfig:{responseModalities:[\"TEXT\",\"IMAGE\"]}}}}];"
+      },
+      "id": "6c2d5857-f492-4114-acc4-0db4a1024bc4",
+      "name": "🔧 Préparer Gemini Edit (Politique)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        39760,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst item = items[0];\nconst binaryKey = Object.keys(item.binary)[0];\nconst buffer = await this.helpers.getBinaryDataBuffer(0, binaryKey);\nconst imageBase64 = buffer.toString('base64');\nconst mimeType = item.binary[binaryKey].mimeType || 'image/jpeg';\n\nconst allItems = $('🔀 Politique ou Tech ?').all();\nconst postData = allItems.length > 1 ? allItems[1].json : allItems[0].json;\nconst imageTitre = postData.image_titre || 'TITRE';\nconst imageSousTitre = postData.image_sous_titre || 'Découvre pourquoi ça change tout.';\nconst imageIcone = postData.image_icone || 'icône générique';\n\nconst prompt = `Edit this image by changing ONLY these 2 text elements. Keep EVERYTHING else pixel-perfect identical (background gradient, layout, milléweb logo at top, illustration/icon, arrow icon, Enzo Quelenis photo and text at bottom-left, www.milleweb.fr at bottom-right):\n\n1. REPLACE the bold white text inside the dark navy blue pill/badge in the center. The text must be: ${imageTitre}\n\n2. REPLACE the subtitle text below the badge. The text must be: ${imageSousTitre}\n\nRemove any other text that is not part of the original template layout. Do NOT modify anything else. Output same dimensions.`;\n\nreturn [{json:{requestBody:{contents:[{parts:[{inline_data:{mime_type:mimeType,data:imageBase64}},{text:prompt}]}],generationConfig:{responseModalities:[\"TEXT\",\"IMAGE\"]}}}}];"
+      },
+      "id": "e6594a95-28e1-4ff2-b102-b266d3a972ba",
+      "name": "🔧 Préparer Gemini Edit (Tech)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        39760,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{GEMINI_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "e62b5abb-6d6f-4dc1-9e85-96b5bb9a1498",
+      "name": "🎨 Gemini Edit (Politique)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        39984,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{GEMINI_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "b0ab67db-7a0a-4778-a807-7b21049bca77",
+      "name": "🎨 Gemini Edit (Tech)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        39984,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet imageBase64 = ''; let mimeType = 'image/png';\ntry {\n  for (const candidate of (response.candidates||[])) {\n    for (const part of (candidate.content?.parts||[])) {\n      const inlineData = part.inline_data || part.inlineData;\n      if (inlineData) { imageBase64 = inlineData.data; mimeType = inlineData.mime_type || inlineData.mimeType || 'image/png'; break; }\n    }\n    if (imageBase64) break;\n  }\n} catch (e) { return [{json:{error:'Erreur parsing Gemini: '+e.message}}]; }\nif (!imageBase64) return [{json:{error:'Gemini n\\'a pas retourné d\\'image (politique)'}}];\nconst buf = Buffer.from(imageBase64, 'base64');\nconst ext = mimeType.includes('png') ? 'png' : 'jpg';\nconst bd = await this.helpers.prepareBinaryData(buf, `milleweb-politique-${new Date().toISOString().split('T')[0]}.${ext}`, mimeType);\nreturn [{json:{}, binary:{data:bd}}];"
+      },
+      "id": "36ff055e-dd2b-4c8a-bed1-fabf39a396cd",
+      "name": "🖼️ Extraire image (Politique)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40208,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet imageBase64 = ''; let mimeType = 'image/png';\ntry {\n  for (const candidate of (response.candidates||[])) {\n    for (const part of (candidate.content?.parts||[])) {\n      const inlineData = part.inline_data || part.inlineData;\n      if (inlineData) { imageBase64 = inlineData.data; mimeType = inlineData.mime_type || inlineData.mimeType || 'image/png'; break; }\n    }\n    if (imageBase64) break;\n  }\n} catch (e) { return [{json:{error:'Erreur parsing Gemini: '+e.message}}]; }\nif (!imageBase64) return [{json:{error:'Gemini n\\'a pas retourné d\\'image (tech)'}}];\nconst buf = Buffer.from(imageBase64, 'base64');\nconst ext = mimeType.includes('png') ? 'png' : 'jpg';\nconst bd = await this.helpers.prepareBinaryData(buf, `milleweb-tech-${new Date().toISOString().split('T')[0]}.${ext}`, mimeType);\nreturn [{json:{}, binary:{data:bd}}];"
+      },
+      "id": "e5e8c8b9-c7d1-4de2-b954-71538b8e32de",
+      "name": "🖼️ Extraire image (Tech)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40208,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/dwtweioda/image/upload",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "upload_preset",
+              "value": "milleweb_linkedin"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "folder",
+              "value": "linkedin-posts"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "554ffb09-2bcc-4d03-b7ce-a4d3da9273b6",
+      "name": "☁️ Cloudinary (Politique)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        40432,
+        15840
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudinary.com/v1_1/dwtweioda/image/upload",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "upload_preset",
+              "value": "milleweb_linkedin"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "folder",
+              "value": "linkedin-posts"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "635d35d8-36bf-4cc5-b581-7c60259b862c",
+      "name": "☁️ Cloudinary (Tech)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        40432,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analyser les top posts pour extraire les patterns viraux\nconst prevData = $input.first().json;\n\ntry {\n  // 1. Récupérer TOUS les posts depuis Qdrant avec leurs métriques\n  const scrollResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://qdrant:6333/collections/linkedin_posts/points/scroll',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      limit: 100,\n      with_payload: true,\n      with_vector: false\n    },\n    json: true\n  });\n\n  const points = scrollResponse.result?.points || [];\n  \n  if (points.length < 5) {\n    return [{ json: { ...prevData, top_posts_analysis: 'Pas assez de posts pour analyser (min 5)', viral_patterns: '' } }];\n  }\n\n  // 2. Trier par score composite de viralité\n  const sorted = points\n    .filter(p => p.payload && p.payload.text && p.payload.text.length > 100)\n    .sort((a, b) => {\n      const scoreA = (a.payload.engagementRate || 0) * 0.4 + \n                     (a.payload.reactions || 0) * 0.3 + \n                     (a.payload.comments || 0) * 0.2 + \n                     ((a.payload.impressions || 0) / 100) * 0.1;\n      const scoreB = (b.payload.engagementRate || 0) * 0.4 + \n                     (b.payload.reactions || 0) * 0.3 + \n                     (b.payload.comments || 0) * 0.2 + \n                     ((b.payload.impressions || 0) / 100) * 0.1;\n      return scoreB - scoreA;\n    });\n\n  // 3. Top 5 et Bottom 5\n  const top5 = sorted.slice(0, 5);\n  const bottom5 = sorted.slice(-5).reverse();\n\n  // 4. Extraire les patterns\n  const topLengths = top5.map(p => p.payload.text_length || p.payload.text.length);\n  const avgTopLength = Math.round(topLengths.reduce((a, b) => a + b, 0) / topLengths.length);\n  \n  const allEngagement = sorted.map(p => p.payload.engagementRate || 0);\n  const avgEngagement = (allEngagement.reduce((a, b) => a + b, 0) / allEngagement.length).toFixed(2);\n  \n  const typePerf = {};\n  sorted.forEach(p => {\n    const t = p.payload.type || 'perso';\n    if (!typePerf[t]) typePerf[t] = { total: 0, count: 0, reactions: 0, impressions: 0 };\n    typePerf[t].total += p.payload.engagementRate || 0;\n    typePerf[t].count++;\n    typePerf[t].reactions += p.payload.reactions || 0;\n    typePerf[t].impressions += p.payload.impressions || 0;\n  });\n  \n  const typePerfSummary = Object.entries(typePerf).map(([type, data]) => \n    type + ': ' + (data.total / data.count).toFixed(2) + '% eng moyen, ' + Math.round(data.reactions / data.count) + ' reactions/post, ' + Math.round(data.impressions / data.count) + ' impressions/post'\n  ).join(' | ');\n\n  // 5. Construire le briefing\n  const analysis = 'ANALYSE DE TES ' + sorted.length + ' POSTS LINKEDIN :\\n\\n' +\n    'PERFORMANCE MOYENNE : ' + avgEngagement + '% engagement rate\\n\\n' +\n    'TOP 5 POSTS (les plus viraux) :\\n' +\n    top5.map((p, i) => {\n      const d = p.payload;\n      return (i + 1) + '. [' + d.engagementRate + '% eng, ' + d.reactions + ' reactions, ' + d.comments + ' comments, ' + d.impressions + ' impressions]\\n   Hook: \"' + (d.hook || d.text.split('\\n')[0]) + '\"\\n   Type: ' + d.type + ' | Longueur: ' + (d.text_length || d.text.length) + ' chars';\n    }).join('\\n') + '\\n\\n' +\n    'BOTTOM 5 (les moins performants) :\\n' +\n    bottom5.map((p, i) => {\n      const d = p.payload;\n      return (i + 1) + '. [' + d.engagementRate + '% eng, ' + d.reactions + ' reactions] Hook: \"' + (d.hook || d.text.split('\\n')[0]) + '\"';\n    }).join('\\n') + '\\n\\n' +\n    'PATTERNS IDENTIFIES :\\n' +\n    '- Longueur ideale : ~' + avgTopLength + ' caracteres (tes top posts)\\n' +\n    '- Performance par type : ' + typePerfSummary + '\\n' +\n    '- Les hooks courts, provocateurs et personnels performent le mieux\\n' +\n    '- Les posts avec du vecu et des histoires personnelles battent les posts purement informatifs';\n\n  return [{ json: { ...prevData, top_posts_analysis: analysis } }];\n\n} catch (e) {\n  return [{ json: { ...prevData, top_posts_analysis: 'Analyse indisponible: ' + e.message } }];\n}"
+      },
+      "id": "076b1a35-9517-4cd2-aa37-44685f5b0108",
+      "name": "📊 Analyser top posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        37616,
+        16032
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Régénérer un post détecté comme doublon (max 2 tentatives)\nconst d = $input.first().json;\nconst MAX_RETRIES = 2;\nconst SIMILARITY_THRESHOLD = 0.85;\n\n// Récupérer les actus originales depuis le node Parser\nlet actus;\ntry {\n  actus = $('📊 Parser les actus').first().json;\n} catch(e) {\n  actus = { politique: [], tech: [] };\n}\n\n// Récupérer l'analyse des top posts\nlet topAnalysis = '';\ntry {\n  topAnalysis = $('📊 Analyser top posts').first().json.top_posts_analysis || '';\n} catch(e) {}\n\nconst postType = d.Type || 'actu';\nconst similarHook = d.qdrant_similar_hook || '';\nconst similarDate = d.qdrant_similar_date || '';\nconst originalContenu = d.Contenu || '';\n\nlet lastPost = null;\nlet success = false;\n\nfor (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {\n  try {\n    // 1. Appeler Gemini pour régénérer\n    const prompt = `Tu es un ghostwriter LinkedIn expert. Tu dois RÉGÉNÉRER un post ${postType === 'actu' ? 'politique/actualité' : 'tech/informatique'} car le précédent était trop similaire à un post déjà publié.\n\nPOST REJETÉ (trop similaire) :\n\"${originalContenu.substring(0, 500)}\"\n\nPOST EXISTANT SIMILAIRE (à ÉVITER absolument) :\nHook: \"${similarHook}\"\nDate: ${similarDate}\n\nACTUALITÉS DISPONIBLES :\n${postType === 'actu' ? JSON.stringify(actus.politique || []) : JSON.stringify(actus.tech || [])}\n\n${topAnalysis ? 'ANALYSE PERFORMANCE :\\n' + topAnalysis.substring(0, 1000) : ''}\n\nINSTRUCTIONS :\n- Choisis une AUTRE actualité ou un AUTRE ANGLE sur le même sujet\n- Le hook doit être COMPLÈTEMENT DIFFÉRENT du post rejeté et du post existant\n- Garde le même ton (cash, provocateur, personnel) et le même format (800-1500 chars)\n- Tentative ${attempt}/${MAX_RETRIES} — sois créatif et original !\n\nRETOURNE UNIQUEMENT un JSON :\n{\"type\":\"${postType}\",\"titre_interne\":\"\",\"contenu\":\"HOOK\\\\n\\\\n\\\\nCorps...\",\"hashtags\":\"#tag1 #tag2\",\"actu_source\":\"\",\"heure_publication_suggeree\":\"\",\"image_titre\":\"TITRE MAX 5 MOTS\",\"image_sous_titre\":\"Sous-titre max 8 mots\",\"image_icone\":\"description icône flat design\"}`;\n\n    const geminiResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={{GEMINI_KEY}}',\n      headers: { 'Content-Type': 'application/json' },\n      body: {\n        contents: [{ parts: [{ text: prompt }] }],\n        generationConfig: { maxOutputTokens: 4000, temperature: 1.0 }\n      },\n      json: true\n    });\n\n    // 2. Parser la réponse\n    let responseText = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';\n    \n    // Nettoyer le JSON\n    const mdMatch = responseText.match(/```json?\\n?([\\s\\S]*?)\\n?```/);\n    if (mdMatch) responseText = mdMatch[1];\n    \n    // Parser caractère par caractère pour les \\n\n    let cleaned = '';\n    let inString = false;\n    let escaped = false;\n    for (let i = 0; i < responseText.length; i++) {\n      const ch = responseText[i];\n      if (escaped) { cleaned += ch; escaped = false; continue; }\n      if (ch === '\\\\') { escaped = true; cleaned += ch; continue; }\n      if (ch === '\"') { inString = !inString; cleaned += ch; continue; }\n      if (inString && ch === '\\n') { cleaned += '\\\\n'; continue; }\n      if (inString && ch === '\\r') { continue; }\n      cleaned += ch;\n    }\n    \n    const braceStart = cleaned.indexOf('{');\n    const braceEnd = cleaned.lastIndexOf('}');\n    if (braceStart === -1) throw new Error('Pas de JSON');\n    \n    const post = JSON.parse(cleaned.substring(braceStart, braceEnd + 1));\n    \n    let contenu = (post.contenu || '').replace(/\\\\n/g, '\\n');\n    const hashtags = post.hashtags || '';\n    if (hashtags && !contenu.includes(hashtags)) {\n      contenu = contenu + '\\n\\n' + hashtags;\n    }\n\n    // 3. Vérifier dans Qdrant\n    const truncated = contenu.substring(0, 2000);\n    const embResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={{GEMINI_KEY}}',\n      headers: { 'Content-Type': 'application/json' },\n      body: { model: 'models/gemini-embedding-001', content: { parts: [{ text: truncated }] } },\n      json: true\n    });\n\n    const embedding = embResponse.embedding?.values || [];\n    if (embedding.length === 0) throw new Error('No embedding');\n\n    const searchResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://qdrant:6333/collections/linkedin_posts/points/search',\n      headers: { 'Content-Type': 'application/json' },\n      body: { vector: embedding, limit: 3, with_payload: { include: ['hook', 'type', 'sentAt'] } },\n      json: true\n    });\n\n    const matches = searchResponse.result || [];\n    const topScore = matches.length > 0 ? matches[0].score : 0;\n\n    if (topScore <= SIMILARITY_THRESHOLD) {\n      // Post original — on le garde !\n      lastPost = {\n        Titre: post.titre_interne || 'Régénéré',\n        Type: postType,\n        Contenu: contenu,\n        'Date Publication': d['Date Publication'],\n        'Heure Suggérée': post.heure_publication_suggeree || '',\n        Statut: 'En attente de validation',\n        'Source Actu': post.actu_source || '',\n        'Date Génération': d['Date Génération'],\n        'Publié': false,\n        image_titre: post.image_titre || '',\n        image_sous_titre: post.image_sous_titre || '',\n        image_icone: post.image_icone || '',\n        qdrant_status: 'regenerated_ok',\n        qdrant_score: Math.round(topScore * 1000) / 1000,\n        regen_attempt: attempt\n      };\n      success = true;\n      break;\n    }\n    \n    // Encore doublon — retry avec plus de créativité\n  } catch (e) {\n    // Erreur — on continue à la tentative suivante\n  }\n  \n  // Pause 1s entre les tentatives\n  if (attempt < MAX_RETRIES) {\n    await new Promise(r => setTimeout(r, 1000));\n  }\n}\n\nif (success && lastPost) {\n  return [{ json: lastPost }];\n} else {\n  // Échec après toutes les tentatives — rejeter\n  return [{ json: {\n    ...d,\n    Statut: 'Rejeté',\n    qdrant_status: 'duplicate_after_regen',\n    message: '⚠️ Post ' + postType + ' rejeté après ' + MAX_RETRIES + ' tentatives de régénération'\n  }}];\n}"
+      },
+      "id": "6505da26-4995-4149-b365-acf2cc9e4347",
+      "name": "🔄 Régénérer post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        38864,
+        16112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "regen-ok",
+              "leftValue": "={{ $json.qdrant_status }}",
+              "rightValue": "regenerated_ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d5bb4fe1-6ba7-42b0-b8c0-4d470e29ab23",
+      "name": "❓ Régénéré OK ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        39088,
+        16112
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "reject-final",
+              "name": "message",
+              "value": "=⚠️ Post {{ $json.Type }} définitivement rejeté après régénération. {{ $json.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "48984f5a-f25d-4740-9a7e-271bc85543a0",
+      "name": "⚠️ Rejeté définitivement",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        39312,
+        16160
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.buffer.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "create_post",
+          "mode": "list",
+          "cachedResultName": "create_post"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "channelId": "69c2433aaf47dacb694bc70f",
+            "schedulingType": "automatic",
+            "text": "={{ $('📥 Template Politique').item.json.Contenu }}",
+            "assets": "={\n  \"images\": [\n    {\n      \"url\": \"{{ $json.secure_url }}\"\n    }\n  ]\n}",
+            "saveToDraft": true,
+            "mode": "addToQueue",
+            "tagIds": "[\n  \"69caf4b91fc9a36e82029fce\"\n]"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "channelId",
+              "displayName": "channelId",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "schedulingType",
+              "displayName": "schedulingType",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "notification",
+                  "value": "notification"
+                },
+                {
+                  "name": "automatic",
+                  "value": "automatic"
+                }
+              ],
+              "removed": false
+            },
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "addToQueue",
+                  "value": "addToQueue"
+                },
+                {
+                  "name": "shareNow",
+                  "value": "shareNow"
+                },
+                {
+                  "name": "shareNext",
+                  "value": "shareNext"
+                },
+                {
+                  "name": "customScheduled",
+                  "value": "customScheduled"
+                },
+                {
+                  "name": "recommendedTime",
+                  "value": "recommendedTime"
+                }
+              ],
+              "removed": false
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "tagIds",
+              "displayName": "tagIds",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "assets",
+              "displayName": "assets",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "saveToDraft",
+              "displayName": "saveToDraft",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        40656,
+        15840
+      ],
+      "id": "71292ad5-1755-4c93-a04f-0b1eba2e485a",
+      "name": "MCP Client Politique",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "5cJM3IMUEJ1qknsF",
+          "name": "Buffer Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.buffer.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "create_post",
+          "mode": "list",
+          "cachedResultName": "create_post"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "channelId": "69c2433aaf47dacb694bc70f",
+            "schedulingType": "automatic",
+            "text": "={{ $('🔀 Politique ou Tech ?').all().length > 1 ? $('🔀 Politique ou Tech ?').all()[1].json.Contenu : $('🔀 Politique ou Tech ?').first().json.Contenu }}",
+            "assets": "={\n  \"images\": [\n    {\n      \"url\": \"{{ $json.secure_url }}\"\n    }\n  ]\n}",
+            "saveToDraft": true,
+            "mode": "addToQueue",
+            "tagIds": "[\n \"69caf4f0d6e57c03c10d0bf1\"\n]"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "channelId",
+              "displayName": "channelId",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "schedulingType",
+              "displayName": "schedulingType",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "notification",
+                  "value": "notification"
+                },
+                {
+                  "name": "automatic",
+                  "value": "automatic"
+                }
+              ],
+              "removed": false
+            },
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "addToQueue",
+                  "value": "addToQueue"
+                },
+                {
+                  "name": "shareNow",
+                  "value": "shareNow"
+                },
+                {
+                  "name": "shareNext",
+                  "value": "shareNext"
+                },
+                {
+                  "name": "customScheduled",
+                  "value": "customScheduled"
+                },
+                {
+                  "name": "recommendedTime",
+                  "value": "recommendedTime"
+                }
+              ],
+              "removed": false
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "tagIds",
+              "displayName": "tagIds",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "assets",
+              "displayName": "assets",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "saveToDraft",
+              "displayName": "saveToDraft",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        40656,
+        16032
+      ],
+      "id": "7c5821cd-6d7d-4ec0-8f43-4011b6a3fac6",
+      "name": "MCP Client Tech",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "5cJM3IMUEJ1qknsF",
+          "name": "Buffer Bearer Auth account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "⏰ Tous les jours à 8h": {
+      "main": [
+        [
+          {
+            "node": "🔍 Perplexity - Chercher les actus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Perplexity - Chercher les actus": {
+      "main": [
+        [
+          {
+            "node": "📊 Parser les actus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Parser les actus": {
+      "main": [
+        [
+          {
+            "node": "❓ Parse OK ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Parse OK ?": {
+      "main": [
+        [
+          {
+            "node": "📊 Analyser top posts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚠️ Erreur parsing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Gemini - Générer 2 posts": {
+      "main": [
+        [
+          {
+            "node": "✂️ Parser les 2 posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "🤖 Gemini - Générer 2 posts",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✂️ Parser les 2 posts": {
+      "main": [
+        [
+          {
+            "node": "🔍 Check Qdrant - Doublons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Check Qdrant - Doublons": {
+      "main": [
+        [
+          {
+            "node": "❓ Doublon ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Doublon ?": {
+      "main": [
+        [
+          {
+            "node": "🔀 Politique ou Tech ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Régénérer post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Politique ou Tech ?": {
+      "main": [
+        [
+          {
+            "node": "📥 Template Politique",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📥 Template Tech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📥 Template Politique": {
+      "main": [
+        [
+          {
+            "node": "🔧 Préparer Gemini Edit (Politique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📥 Template Tech": {
+      "main": [
+        [
+          {
+            "node": "🔧 Préparer Gemini Edit (Tech)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔧 Préparer Gemini Edit (Politique)": {
+      "main": [
+        [
+          {
+            "node": "🎨 Gemini Edit (Politique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔧 Préparer Gemini Edit (Tech)": {
+      "main": [
+        [
+          {
+            "node": "🎨 Gemini Edit (Tech)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎨 Gemini Edit (Politique)": {
+      "main": [
+        [
+          {
+            "node": "🖼️ Extraire image (Politique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎨 Gemini Edit (Tech)": {
+      "main": [
+        [
+          {
+            "node": "🖼️ Extraire image (Tech)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🖼️ Extraire image (Politique)": {
+      "main": [
+        [
+          {
+            "node": "☁️ Cloudinary (Politique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🖼️ Extraire image (Tech)": {
+      "main": [
+        [
+          {
+            "node": "☁️ Cloudinary (Tech)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "☁️ Cloudinary (Politique)": {
+      "main": [
+        [
+          {
+            "node": "MCP Client Politique",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "☁️ Cloudinary (Tech)": {
+      "main": [
+        [
+          {
+            "node": "MCP Client Tech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Analyser top posts": {
+      "main": [
+        [
+          {
+            "node": "🤖 Gemini - Générer 2 posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Régénérer post": {
+      "main": [
+        [
+          {
+            "node": "❓ Régénéré OK ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Régénéré OK ?": {
+      "main": [
+        [
+          {
+            "node": "🔀 Politique ou Tech ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚠️ Rejeté définitivement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40b70a5b0574959651ac518540b9ab8d9eb643d8fe7bb420e4cac8bbd58e801c"
+  }
+}
